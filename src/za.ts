@@ -37,16 +37,36 @@ export namespace ZA {
       agg?: "sum" | "max" | "min" | "avg" | "count";
     };
 
+    export type ValueItem =
+      | { aka: "col"; table: string; col: string }
+      | { aka: "const"; type: "string"; val: string }
+      | { aka: "const"; type: "number"; val: number };
+
+    export type WhereItem = { disabled?: boolean } & (
+      | { aka: "or"; cases: WhereItem[][] }
+      | {
+          aka: "=" | ">" | "<" | "!=" | ">=" | "<=";
+          left: ValueItem;
+          right: ValueItem;
+        }
+      | { aka: "is null" | "is not null"; obj: ValueItem }
+    );
+
     export type Query = {
       from: FromItem[];
-      where: [];
+      where: WhereItem & { aka: "or" };
       select: SelectItem[];
       order: [];
     };
   }
 
   export namespace Nodes {
-    type _Define<_Type extends string, _Props = unknown> = { id: ID; type: _Type; props: _Props };
+    type _Define<_Type extends string, _Props = unknown> = {
+      id: ID;
+      type: _Type;
+      props: _Props;
+      ui?: { position: { x: number; y: number } };
+    };
 
     export type DebugPrint = _Define<"debug_print", {}>;
     export type Selection = _Define<"selection", { query: QB.Query; refs?: string[] }>;

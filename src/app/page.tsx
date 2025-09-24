@@ -42,7 +42,7 @@ export default function Home() {
     const newEdges: Edge[] = [];
 
     for (const zn of zSpace.nodes) {
-      newNodes.push({ id: zn.id, type: zn.type, data: { node: zn }, position: { x: 0, y: 0 } });
+      newNodes.push({ id: zn.id, type: zn.type, data: { node: zn }, position: { x: 0, y: 0, ...zn.ui?.position } });
     }
 
     const groups = new Map<ZA.ID, Map<ZA.ID, ZA.Link[]>>();
@@ -123,7 +123,7 @@ export default function Home() {
             top: 10,
             left: 10,
             width: 420,
-            maxHeight: "calc(100vh - 20px)",
+            maxHeight: "calc(100vh - 2 * var(--chakra-spacing-10))",
             overflow: "hidden",
             overflowY: "auto",
           }}
