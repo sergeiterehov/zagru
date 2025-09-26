@@ -18,7 +18,6 @@ import { Box } from "@chakra-ui/react";
 import { ZA } from "@/za";
 import { SelectionNode } from "@/nodes/selection/SelectionNode";
 import { SelectionProps } from "@/nodes/selection/SelectionProps";
-import { getSqlPlan } from "./lib/actions";
 import { useAppStore } from "./app.store.context";
 import { DebugPrintNode } from "@/nodes/debug/DebugPrintNode";
 
@@ -43,7 +42,7 @@ export default function Home() {
   const setActiveNodeId = useAppStore((s) => s.setActiveNodeId);
   const setNode = useAppStore((s) => s.setNode);
 
-  const activeNode = activeNodeId ? nodes.find((n) => n.data.node.id === activeNodeId) : undefined;
+  const activeZNode = useAppStore((s) => (activeNodeId ? s.space.nodes.find((n) => n.id === activeNodeId) : undefined));
 
   useEffect(() => {
     const newNodes: Node<{ node: ZA.Node }>[] = [];
@@ -103,8 +102,6 @@ export default function Home() {
     (connection: Connection) => setEdges((edgesSnapshot) => addEdge(connection, edgesSnapshot)),
     []
   );
-
-  const activeZNode = activeNode?.data.node;
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>

@@ -126,6 +126,8 @@ const FromItemProps = (props: {
                     return onChange(next);
                   }}
                 />
+              </Field.Root>
+              <Field.Root>
                 <Field.Label>equals</Field.Label>
                 <Stack direction="row">
                   <Input
@@ -143,7 +145,7 @@ const FromItemProps = (props: {
                     }}
                   />
                   <Input
-                    placeholder="Prev table column"
+                    placeholder="Prev column"
                     value={from.join.on.ext_col}
                     onChange={(e) => {
                       const value = e.currentTarget.value;
