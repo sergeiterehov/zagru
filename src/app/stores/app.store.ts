@@ -1,5 +1,7 @@
 import { ZA } from "@/za";
+import { produce } from "immer";
 import { createStore } from "zustand/vanilla";
+import { getSqlPlan } from "../lib/actions";
 
 const initSpace: ZA.Space = {
   env: {
@@ -81,14 +83,46 @@ const initSpace: ZA.Space = {
 export type AppStore = {
   space: ZA.Space;
   envSettingsOpened: boolean;
+  activeNodeId?: ZA.ID;
 
+  _fetchExecSpace(): Promise<void>;
+
+  setSpace(update: ZA.Space): void;
+  setNode(id: ZA.ID, update: ZA.Node): void;
+  setActiveNodeId(id?: ZA.ID): void;
   openEnvSettings(): void;
 };
 
 export const createAppStore = () => {
-  return createStore<AppStore>()((set) => ({
+  return createStore<AppStore>()((set, get) => ({
     envSettingsOpened: false,
     space: initSpace,
+
+    async _fetchExecSpace() {
+      getSqlPlan({ space: get().space }).then(console.log, console.error);
+    },
+
+    setSpace(update) {
+      set({ space: update });
+    },
+
+    setNode(id, update) {
+      set(
+        produce<AppStore>((prev) => {
+          const index = prev.space.nodes.findIndex((n) => n.id === id);
+
+          if (index === -1) return;
+
+          prev.space.nodes[index] = update;
+        })
+      );
+
+      get()._fetchExecSpace();
+    },
+
+    setActiveNodeId(id) {
+      set({ activeNodeId: id });
+    },
 
     openEnvSettings() {
       set({ envSettingsOpened: true });

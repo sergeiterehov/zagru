@@ -25,9 +25,13 @@ export namespace ZA {
   }
 
   export namespace QB {
+    export type JoinType = "left" | "right" | "inner";
+    export type JoinOn = { col: string; ext_table: string; ext_col: string };
+    export type Join = { type: JoinType; on?: JoinOn };
+
     export type FromItem = {
       table: string;
-      join?: { type: "left" | "right" | "inner"; on?: { col: string; ext_table: string; ext_col: string } };
+      join?: Join;
     };
 
     export type SelectItem = {

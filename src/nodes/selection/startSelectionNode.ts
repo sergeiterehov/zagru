@@ -75,7 +75,7 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
 
   if (query.from.length) {
     select_sql = `${select_sql} FROM ${query.from
-      .map((f) => {
+      .map((f, i) => {
         let from_full = wrapTable(f.table);
 
         if (f.join) {
@@ -97,6 +97,12 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
             from_full = `${from_full} ON ${selectorToSql(`${f.table}.${f.join.on.col}`)} = ${wrapTable(
               f.join.on.ext_table
             )}.${idToSql(f.join.on.ext_col)}`;
+          } else {
+            from_full = `NATURAL ${from_full}`;
+          }
+        } else {
+          if (i > 0) {
+            from_full = `, ${from_full}`;
           }
         }
 

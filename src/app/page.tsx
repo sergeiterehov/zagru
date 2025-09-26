@@ -27,26 +27,34 @@ const nodeTypes = {
   selection: SelectionNode,
 };
 
-const nodePropTypes: { [K in ZA.Node["type"]]?: React.FC<{ node: ZA.Node & { type: K } }> } = {
+const nodePropTypes: {
+  [K in ZA.Node["type"]]?: React.FC<{ node: ZA.Node & { type: K }; onChange(update: ZA.Node): void }>;
+} = {
   selection: SelectionProps,
 };
 
 export default function Home() {
-  const [nodes, setNodes] = useState<Node[]>([]);
+  const [nodes, setNodes] = useState<Node<{ node: ZA.Node }>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
-  const zSpace = useAppStore((s) => s.space);
+  const activeNodeId = useAppStore((s) => s.activeNodeId);
+  const zNodes = useAppStore((s) => s.space.nodes);
+  const zLinks = useAppStore((s) => s.space.links);
+  const setActiveNodeId = useAppStore((s) => s.setActiveNodeId);
+  const setNode = useAppStore((s) => s.setNode);
+
+  const activeNode = activeNodeId ? nodes.find((n) => n.data.node.id === activeNodeId) : undefined;
 
   useEffect(() => {
-    const newNodes: Node[] = [];
+    const newNodes: Node<{ node: ZA.Node }>[] = [];
     const newEdges: Edge[] = [];
 
-    for (const zn of zSpace.nodes) {
+    for (const zn of zNodes) {
       newNodes.push({ id: zn.id, type: zn.type, data: { node: zn }, position: { x: 0, y: 0, ...zn.ui?.position } });
     }
 
     const groups = new Map<ZA.ID, Map<ZA.ID, ZA.Link[]>>();
-    for (const zl of zSpace.links) {
+    for (const zl of zLinks) {
       let aGroup = groups.get(zl.a[0]);
       if (!aGroup) {
         aGroup = new Map<ZA.ID, ZA.Link[]>();
@@ -76,12 +84,17 @@ export default function Home() {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [zSpace]);
+  }, [zNodes, zLinks]);
 
-  const onNodesChange = useCallback(
-    (changes: NodeChange[]) => setNodes((nodesSnapshot) => applyNodeChanges(changes, nodesSnapshot)),
-    []
-  );
+  const onNodesChange = useCallback((changes: NodeChange<Node<{ node: ZA.Node }>>[]) => {
+    for (const change of changes) {
+      if (change.type === "select") {
+        if (change.selected) {
+          setActiveNodeId(change.id);
+        }
+      }
+    }
+  }, []);
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
     []
@@ -91,11 +104,7 @@ export default function Home() {
     []
   );
 
-  useEffect(() => {
-    getSqlPlan({ space: zSpace }).then(console.log, console.error);
-  }, [zSpace]);
-
-  const focusNode = nodes.find((n) => n.selected)?.data.node as ZA.Node | undefined;
+  const activeZNode = activeNode?.data.node;
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -111,7 +120,7 @@ export default function Home() {
         <MiniMap />
         <Controls />
       </ReactFlow>
-      {focusNode && (
+      {activeZNode && (
         <Box
           p="4"
           bg="rgba(255,255,255,0.8)"
@@ -138,11 +147,11 @@ export default function Home() {
           }}
         >
           {(() => {
-            const Props = nodePropTypes[focusNode.type];
+            const Props = nodePropTypes[activeZNode.type];
 
             if (!Props) return "Props is not implemented";
 
-            return <Props node={focusNode} />;
+            return <Props node={activeZNode} onChange={(update) => setNode(update.id, update)} />;
           })()}
         </Box>
       )}

@@ -19,6 +19,7 @@ import {
   Tabs,
   Text,
 } from "@chakra-ui/react";
+import { produce } from "immer";
 import { Fragment, useRef, useState } from "react";
 import {
   TbArrowDown,
@@ -46,8 +47,12 @@ const ValueItem = (props: { value: ZA.QB.ValueItem }) => {
   return <Text color="fg.error">unknown</Text>;
 };
 
-const FromItemProps = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }) => {
-  const { from, node } = props;
+const FromItemProps = (props: {
+  node: ZA.Nodes.Selection;
+  from: ZA.QB.FromItem;
+  onChange(update: ZA.QB.FromItem): void;
+}) => {
+  const { from, node, onChange } = props;
 
   const joined = node.props.query.from.indexOf(from) > 0;
 
@@ -55,7 +60,18 @@ const FromItemProps = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }
     <Stack gap="4">
       <Field.Root>
         <Field.Label>Table name</Field.Label>
-        <Input placeholder="Table name with database" value={from.table} />
+        <Input
+          placeholder="Table name with database"
+          value={from.table}
+          onChange={(e) => {
+            const value = e.currentTarget.value;
+            const next = produce(from, (prev) => {
+              prev.table = value;
+            });
+
+            return onChange(next);
+          }}
+        />
       </Field.Root>
 
       {joined && (
@@ -63,8 +79,27 @@ const FromItemProps = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }
           <Field.Root>
             <Field.Label>Join</Field.Label>
             <NativeSelect.Root>
-              <NativeSelect.Field value={from.join?.type}>
-                <option value="">Cross join</option>
+              <NativeSelect.Field
+                value={from.join?.type || ""}
+                onChange={(e) => {
+                  const update = e.currentTarget.value as ZA.QB.JoinType | "";
+                  const next = produce(from, (prev) => {
+                    if (!update) {
+                      delete prev.join;
+                      return;
+                    }
+
+                    if (!prev.join) {
+                      prev.join = { type: update };
+                    } else {
+                      prev.join.type = update;
+                    }
+                  });
+
+                  onChange(next);
+                }}
+              >
+                <option value="">Cross natural join</option>
                 <option value="left">Left join</option>
                 <option value="right">Right join</option>
                 <option value="inner">Inner join</option>
@@ -73,23 +108,88 @@ const FromItemProps = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }
             </NativeSelect.Root>
           </Field.Root>
 
-          {from.join?.on ? (
+          {from.join?.on && (
             <>
               <Field.Root>
                 <Field.Label>On</Field.Label>
-                <Input placeholder="Column" value={from.join.on.col} />
+                <Input
+                  placeholder="Column"
+                  value={from.join.on.col}
+                  onChange={(e) => {
+                    const value = e.currentTarget.value;
+                    const next = produce(from, (prev) => {
+                      if (!prev.join?.on) return;
+
+                      prev.join.on.col = value;
+                    });
+
+                    return onChange(next);
+                  }}
+                />
                 <Field.Label>equals</Field.Label>
                 <Stack direction="row">
-                  <Input placeholder="Prev table" value={from.join.on.ext_table} />
-                  <Input placeholder="Prev table column" value={from.join.on.ext_col} />
+                  <Input
+                    placeholder="Prev table"
+                    value={from.join.on.ext_table}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      const next = produce(from, (prev) => {
+                        if (!prev.join?.on) return;
+
+                        prev.join.on.ext_table = value;
+                      });
+
+                      return onChange(next);
+                    }}
+                  />
+                  <Input
+                    placeholder="Prev table column"
+                    value={from.join.on.ext_col}
+                    onChange={(e) => {
+                      const value = e.currentTarget.value;
+                      const next = produce(from, (prev) => {
+                        if (!prev.join?.on) return;
+
+                        prev.join.on.ext_col = value;
+                      });
+
+                      return onChange(next);
+                    }}
+                  />
                 </Stack>
               </Field.Root>
-              <Button size="xs" variant="ghost">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={() => {
+                  const next = produce(from, (prev) => {
+                    if (!prev.join) return;
+
+                    delete prev.join.on;
+                  });
+
+                  onChange(next);
+                }}
+              >
                 Use natural join
               </Button>
             </>
-          ) : (
-            <Button size="xs" variant="ghost">
+          )}
+
+          {from.join && !from.join.on && (
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                const next = produce(from, (prev) => {
+                  if (!prev.join) return;
+
+                  prev.join.on = { col: "", ext_col: "", ext_table: "" };
+                });
+
+                onChange(next);
+              }}
+            >
               Select columns
             </Button>
           )}
@@ -118,8 +218,12 @@ const FromItemMenu = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem })
   );
 };
 
-const FromItem = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }) => {
-  const { from, node } = props;
+const FromItem = (props: {
+  node: ZA.Nodes.Selection;
+  from: ZA.QB.FromItem;
+  onChange(update: ZA.QB.FromItem): void;
+}) => {
+  const { from, node, onChange } = props;
 
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
@@ -411,8 +515,9 @@ export const WhereOrItem = (props: { root?: boolean; where: ZA.QB.WhereItem & { 
   );
 };
 
-export const SelectionProps = (props: { node: ZA.Nodes.Selection }) => {
-  const { node } = props;
+export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(update: ZA.Nodes.Selection): void }) => {
+  const { node, onChange } = props;
+
   return (
     <>
       <div>
@@ -441,7 +546,18 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection }) => {
                   <Field.Label>Tables</Field.Label>
                   <Stack width="full">
                     {node.props.query.from.map((f, i) => (
-                      <FromItem key={i} node={node} from={f} />
+                      <FromItem
+                        key={i}
+                        node={node}
+                        from={f}
+                        onChange={(update) => {
+                          const next = produce(node, (prev) => {
+                            prev.props.query.from[i] = update;
+                          });
+
+                          onChange(next);
+                        }}
+                      />
                     ))}
                     <Button variant="ghost" width="full" size="xs">
                       Add table
