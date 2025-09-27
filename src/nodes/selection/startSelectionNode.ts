@@ -43,10 +43,10 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
             .filter((wa) => !wa.disabled)
             .map(whereToSql)
             .filter(Boolean)
+            .map((s) => `(${s})`)
             .join(" AND ")
         )
         .filter(Boolean)
-        .map((s) => `(${s})`)
         .join(" OR ");
     }
 
@@ -78,7 +78,7 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
       .map((f, i) => {
         let from_full = wrapTable(f.table);
 
-        if (f.join) {
+        if (i > 0 && f.join) {
           let join_type = "JOIN";
 
           if (f.join.type === "left") {
