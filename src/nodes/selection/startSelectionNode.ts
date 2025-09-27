@@ -11,13 +11,14 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
 }) => {
   const { query } = node.props;
 
-  function wrapTable(name: string) {
-    console.log(name, input);
-    if (name in input && typeof input[name] === "string" && node.props.refs?.includes(name)) {
-      return selectorToSql(input[name]);
+  function wrapSelectorToSql(name: string) {
+    const parts = name.split(".");
+
+    if (parts[0] in input && typeof input[parts[0]] === "string" && node.props.refs?.includes(parts[0])) {
+      parts[0] = input[parts[0]] as string;
     }
 
-    return selectorToSql(name);
+    return selectorToSql(parts.join("."));
   }
 
   function valueToSql(v: ZA.QB.ValueItem): string {
@@ -29,7 +30,7 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
     }
 
     if (v.aka === "col") {
-      return selectorToSql(`${v.table}.${v.col}`);
+      return wrapSelectorToSql(`${v.table}.${v.col}`);
     }
 
     throw new Error(`Unsupported value type`);
@@ -64,7 +65,7 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
   let selection_list_sql = query.select
     .filter((s) => !s.disabled)
     .map((s) => {
-      let col_full = `${wrapTable(s.table)}.${idToSql(s.col)}`;
+      let col_full = wrapSelectorToSql(`${s.table}.${s.col}`);
 
       if (s.agg && /^[a-zA-Z_]+[a-zA-Z_0-9]*$/.test(s.agg)) {
         col_full = `${s.agg}(${col_full})`;
@@ -88,7 +89,7 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
   if (query.from.length) {
     select_sql = `${select_sql} FROM ${query.from
       .map((f, i) => {
-        let from_full = wrapTable(f.table);
+        let from_full = wrapSelectorToSql(f.table);
 
         if (i > 0 && f.join) {
           let join_type = "JOIN";
@@ -106,9 +107,9 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
           from_full = `${join_type} ${from_full}`;
 
           if (f.join.on) {
-            from_full = `${from_full} ON ${selectorToSql(`${f.table}.${f.join.on.col}`)} = ${wrapTable(
-              f.join.on.ext_table
-            )}.${idToSql(f.join.on.ext_col)}`;
+            from_full = `${from_full} ON ${wrapSelectorToSql(`${f.table}.${f.join.on.col}`)} = ${wrapSelectorToSql(
+              `${f.join.on.ext_table}.${f.join.on.ext_col}`
+            )}`;
           } else {
             from_full = `NATURAL ${from_full}`;
           }
@@ -127,6 +128,21 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
 
   if (where_sql) {
     select_sql = `${select_sql} WHERE ${where_sql}`;
+  }
+
+  if (query.select.some((s) => s.agg)) {
+    const group_by_sql = query.select
+      .map((s) => {
+        if (s.agg) return;
+
+        return wrapSelectorToSql(`${s.table}.${s.col}`);
+      })
+      .filter(Boolean)
+      .join(", ");
+
+    if (group_by_sql) {
+      select_sql = `${select_sql} GROUP BY ${group_by_sql}`;
+    }
   }
 
   select_sql = `${select_sql} LIMIT ${env.select_limit};`;

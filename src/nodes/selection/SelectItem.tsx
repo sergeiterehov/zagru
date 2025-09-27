@@ -1,7 +1,7 @@
 import { ZA } from "@/za";
-import { Badge, Button, HStack, Menu, Popover, Portal } from "@chakra-ui/react";
+import { Badge, Box, Button, HStack, Menu, Popover, Portal } from "@chakra-ui/react";
 import { useRef, useState } from "react";
-import { TbEyeClosed, TbFreezeColumn } from "react-icons/tb";
+import { TbEyeClosed, TbFreezeColumn, TbMathFunction } from "react-icons/tb";
 import { SelectItemMenu } from "./SelectItemMenu";
 import { SelectItemProps } from "./SelectItemProps";
 
@@ -32,9 +32,14 @@ export const SelectItem = (props: { selector: ZA.QB.SelectItem }) => {
             justifyContent="flex-start"
             onClick={() => setOpen(true)}
           >
-            <TbFreezeColumn />
+            {(() => {
+              if (selector.agg) return <TbMathFunction />;
+
+              return <TbFreezeColumn />;
+            })()}
             <HStack flexGrow="1" opacity={selector.disabled ? 0.5 : undefined}>
-              {`${selector.table}.${selector.col}`}
+              {selector.agg ? <Box color="fg.subtle">{selector.agg.toUpperCase()}</Box> : undefined}
+              <Box>{selector.col}</Box>
             </HStack>
             {selector.disabled && (
               <Badge size="xs" textTransform="uppercase">
