@@ -61,7 +61,8 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
     throw new Error(`Unsupported where structure`);
   }
 
-  let select_sql = `SELECT ${query.select.length === 0 ? "*" : ""}${query.select
+  let selection_list_sql = query.select
+    .filter((s) => !s.disabled)
     .map((s) => {
       let col_full = `${wrapTable(s.table)}.${idToSql(s.col)}`;
 
@@ -69,9 +70,20 @@ export const startSelectionNode: NodeImpl<ZA.Nodes.Selection, string, { _: strin
         col_full = `${s.agg}(${col_full})`;
       }
 
-      return `${col_full} AS ${s.alias}`;
+      if (s.alias) {
+        col_full = `${col_full} AS ${s.alias}`;
+      }
+
+      return col_full;
     })
-    .join(", ")}`;
+    .filter(Boolean)
+    .join(", ");
+
+  if (!selection_list_sql) {
+    selection_list_sql = "*";
+  }
+
+  let select_sql = `SELECT ${selection_list_sql}`;
 
   if (query.from.length) {
     select_sql = `${select_sql} FROM ${query.from

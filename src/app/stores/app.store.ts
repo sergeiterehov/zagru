@@ -68,7 +68,7 @@ const initSpace: ZA.Space = {
             },
           ],
           where: { aka: "or", cases: [] },
-          select: [],
+          select: [{ table: "t", col: "brand_name", disabled: true }],
           order: [],
         },
       },

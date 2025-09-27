@@ -4,6 +4,7 @@ import { produce } from "immer";
 import { TbAsterisk, TbDatabaseSearch, TbFreezeColumn } from "react-icons/tb";
 import { FromItem } from "./FromItem";
 import { WhereOrItem } from "./WhereItem";
+import { SelectItem } from "./SelectItem";
 
 export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(update: ZA.Nodes.Selection): void }) => {
   const { node, onChange } = props;
@@ -108,10 +109,7 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(updat
                       </Button>
                     )}
                     {node.props.query.select.map((s, i) => (
-                      <Button key={i} variant="outline" width="full" justifyContent="flex-start">
-                        <TbFreezeColumn />
-                        {`${s.table}.${s.col}`}
-                      </Button>
+                      <SelectItem key={i} selector={s} />
                     ))}
                     <Button variant="ghost" width="full" size="xs">
                       Add column

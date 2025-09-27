@@ -25,6 +25,8 @@ export namespace ZA {
   }
 
   export namespace QB {
+    export type AggregationType = "sum" | "max" | "min" | "avg" | "count";
+
     export type JoinType = "left" | "right" | "inner";
     export type JoinOn = { col: string; ext_table: string; ext_col: string };
     export type Join = { type: JoinType; on?: JoinOn };
@@ -37,8 +39,9 @@ export namespace ZA {
     export type SelectItem = {
       table: string;
       col: string;
-      alias: string;
-      agg?: "sum" | "max" | "min" | "avg" | "count";
+      alias?: string;
+      agg?: AggregationType;
+      disabled?: boolean;
     };
 
     export type ValueItem =
