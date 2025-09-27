@@ -1,7 +1,9 @@
 import { ZA } from "@/za";
-import { produce } from "immer";
+import { enableMapSet, produce } from "immer";
 import { createStore } from "zustand/vanilla";
 import { getSqlPlan } from "../lib/actions";
+
+enableMapSet();
 
 const initSpace: ZA.Space = {
   env: {
@@ -83,20 +85,23 @@ const initSpace: ZA.Space = {
 export type AppStore = {
   space: ZA.Space;
   envSettingsOpened: boolean;
-  activeNodeId?: ZA.ID;
+  selectedNodeIds: Set<ZA.ID>;
 
   _fetchExecSpace(): Promise<void>;
 
   setSpace(update: ZA.Space): void;
   setNode(id: ZA.ID, update: ZA.Node): void;
-  setActiveNodeId(id?: ZA.ID): void;
   openEnvSettings(): void;
+
+  selectNode(id: ZA.ID): void;
+  deselectNode(id: ZA.ID): void;
 };
 
 export const createAppStore = () => {
   return createStore<AppStore>()((set, get) => ({
     envSettingsOpened: false,
     space: initSpace,
+    selectedNodeIds: new Set(),
 
     async _fetchExecSpace() {
       getSqlPlan({ space: get().space }).then(console.log, console.error);
@@ -120,12 +125,23 @@ export const createAppStore = () => {
       get()._fetchExecSpace();
     },
 
-    setActiveNodeId(id) {
-      set({ activeNodeId: id });
-    },
-
     openEnvSettings() {
       set({ envSettingsOpened: true });
+    },
+
+    selectNode(id) {
+      set(
+        produce<AppStore>((prev) => {
+          prev.selectedNodeIds.add(id);
+        })
+      );
+    },
+    deselectNode(id) {
+      set(
+        produce<AppStore>((prev) => {
+          prev.selectedNodeIds.delete(id);
+        })
+      );
     },
   }));
 };

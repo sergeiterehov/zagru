@@ -2,7 +2,6 @@
 import { useState, useCallback, useEffect } from "react";
 import {
   ReactFlow,
-  applyNodeChanges,
   applyEdgeChanges,
   addEdge,
   MiniMap,
@@ -26,8 +25,13 @@ const nodeTypes = {
   selection: SelectionNode,
 };
 
+type NodePropsComponent<N extends ZA.Node> = React.FC<{
+  node: N;
+  onChange(update: ZA.Node): void;
+}>;
+
 const nodePropTypes: {
-  [K in ZA.Node["type"]]?: React.FC<{ node: ZA.Node & { type: K }; onChange(update: ZA.Node): void }>;
+  [K in ZA.Node["type"]]?: NodePropsComponent<ZA.Node & { type: K }>;
 } = {
   selection: SelectionProps,
 };
@@ -36,20 +40,28 @@ export default function Home() {
   const [nodes, setNodes] = useState<Node<{ node: ZA.Node }>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
-  const activeNodeId = useAppStore((s) => s.activeNodeId);
+  const selectedNodeIds = useAppStore((s) => s.selectedNodeIds);
   const zNodes = useAppStore((s) => s.space.nodes);
   const zLinks = useAppStore((s) => s.space.links);
-  const setActiveNodeId = useAppStore((s) => s.setActiveNodeId);
-  const setNode = useAppStore((s) => s.setNode);
 
-  const activeZNode = useAppStore((s) => (activeNodeId ? s.space.nodes.find((n) => n.id === activeNodeId) : undefined));
+  const setNode = useAppStore((s) => s.setNode);
+  const selectNode = useAppStore((s) => s.selectNode);
+  const deselectNode = useAppStore((s) => s.deselectNode);
+
+  const activeZNode = useAppStore((s) => s.space.nodes.find((n) => s.selectedNodeIds.has(n.id)));
 
   useEffect(() => {
     const newNodes: Node<{ node: ZA.Node }>[] = [];
     const newEdges: Edge[] = [];
 
     for (const zn of zNodes) {
-      newNodes.push({ id: zn.id, type: zn.type, data: { node: zn }, position: { x: 0, y: 0, ...zn.ui?.position } });
+      newNodes.push({
+        id: zn.id,
+        type: zn.type,
+        data: { node: zn },
+        selected: selectedNodeIds.has(zn.id),
+        position: { x: 0, y: 0, ...zn.ui?.position },
+      });
     }
 
     const groups = new Map<ZA.ID, Map<ZA.ID, ZA.Link[]>>();
@@ -83,13 +95,15 @@ export default function Home() {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [zNodes, zLinks]);
+  }, [zNodes, zLinks, selectedNodeIds]);
 
   const onNodesChange = useCallback((changes: NodeChange<Node<{ node: ZA.Node }>>[]) => {
     for (const change of changes) {
       if (change.type === "select") {
         if (change.selected) {
-          setActiveNodeId(change.id);
+          selectNode(change.id);
+        } else {
+          deselectNode(change.id);
         }
       }
     }
@@ -144,7 +158,7 @@ export default function Home() {
           }}
         >
           {(() => {
-            const Props = nodePropTypes[activeZNode.type];
+            const Props = nodePropTypes[activeZNode.type] as NodePropsComponent<ZA.Node> | undefined;
 
             if (!Props) return "Props is not implemented";
 

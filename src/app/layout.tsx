@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import ChakraLayout from "@/ChakraLayout";
 import { AppStoreProvider } from "./app.store.context";
+import { Toaster, UnhandledRejectionToaster } from "@/components/ui/toaster";
 
 export const metadata: Metadata = {
   title: "Загружатор",
@@ -22,7 +23,11 @@ export default function RootLayout({
     <html className={inter.className} suppressHydrationWarning>
       <body>
         <AppStoreProvider>
-          <ChakraLayout>{children}</ChakraLayout>
+          <ChakraLayout>
+            {children}
+            <Toaster />
+            <UnhandledRejectionToaster />
+          </ChakraLayout>
         </AppStoreProvider>
       </body>
     </html>

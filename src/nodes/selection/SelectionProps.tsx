@@ -1,521 +1,9 @@
 import { ZA } from "@/za";
-import {
-  Badge,
-  Box,
-  Button,
-  Field,
-  Fieldset,
-  HStack,
-  Input,
-  InputGroup,
-  Menu,
-  NativeSelect,
-  NumberInput,
-  Popover,
-  Portal,
-  SegmentGroup,
-  Separator,
-  Stack,
-  Tabs,
-  Text,
-} from "@chakra-ui/react";
+import { Button, Field, Fieldset, Stack, Tabs } from "@chakra-ui/react";
 import { produce } from "immer";
-import { Fragment, useRef, useState } from "react";
-import {
-  TbArrowDown,
-  TbArrowsCross,
-  TbArrowUp,
-  TbAsterisk,
-  TbCodeAsterisk,
-  TbDatabaseSearch,
-  TbEye,
-  TbEyeClosed,
-  TbFilter,
-  TbFreezeColumn,
-  TbTable,
-  TbTableShortcut,
-  TbTrash,
-} from "react-icons/tb";
-
-const ValueItem = (props: { value: ZA.QB.ValueItem }) => {
-  const { value } = props;
-
-  if (value.aka === "col") return <Text>{value.col}</Text>;
-
-  if (value.aka === "const") return <Text>{JSON.stringify(value.val)}</Text>;
-
-  return <Text color="fg.error">unknown</Text>;
-};
-
-const FromItemProps = (props: {
-  node: ZA.Nodes.Selection;
-  from: ZA.QB.FromItem;
-  onChange(update: ZA.QB.FromItem): void;
-}) => {
-  const { from, node, onChange } = props;
-
-  const joined = node.props.query.from.indexOf(from) > 0;
-
-  return (
-    <Stack gap="4">
-      <Field.Root>
-        <Field.Label>Table name</Field.Label>
-        <Input
-          placeholder="Table name with database"
-          value={from.table}
-          onChange={(e) => {
-            const value = e.currentTarget.value;
-            const next = produce(from, (prev) => {
-              prev.table = value;
-            });
-
-            return onChange(next);
-          }}
-        />
-      </Field.Root>
-
-      {joined && (
-        <>
-          <Field.Root>
-            <Field.Label>Join</Field.Label>
-            <NativeSelect.Root>
-              <NativeSelect.Field
-                value={from.join?.type || ""}
-                onChange={(e) => {
-                  const update = e.currentTarget.value as ZA.QB.JoinType | "";
-                  const next = produce(from, (prev) => {
-                    if (!update) {
-                      delete prev.join;
-                      return;
-                    }
-
-                    if (!prev.join) {
-                      prev.join = { type: update };
-                    } else {
-                      prev.join.type = update;
-                    }
-                  });
-
-                  onChange(next);
-                }}
-              >
-                <option value="">Cross natural join</option>
-                <option value="left">Left join</option>
-                <option value="right">Right join</option>
-                <option value="inner">Inner join</option>
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </Field.Root>
-
-          {from.join?.on && (
-            <>
-              <Field.Root>
-                <Field.Label>On</Field.Label>
-                <Input
-                  placeholder="Column"
-                  value={from.join.on.col}
-                  onChange={(e) => {
-                    const value = e.currentTarget.value;
-                    const next = produce(from, (prev) => {
-                      if (!prev.join?.on) return;
-
-                      prev.join.on.col = value;
-                    });
-
-                    return onChange(next);
-                  }}
-                />
-              </Field.Root>
-              <Field.Root>
-                <Field.Label>equals</Field.Label>
-                <Stack direction="row">
-                  <Input
-                    placeholder="Prev table"
-                    value={from.join.on.ext_table}
-                    onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      const next = produce(from, (prev) => {
-                        if (!prev.join?.on) return;
-
-                        prev.join.on.ext_table = value;
-                      });
-
-                      return onChange(next);
-                    }}
-                  />
-                  <Input
-                    placeholder="Prev column"
-                    value={from.join.on.ext_col}
-                    onChange={(e) => {
-                      const value = e.currentTarget.value;
-                      const next = produce(from, (prev) => {
-                        if (!prev.join?.on) return;
-
-                        prev.join.on.ext_col = value;
-                      });
-
-                      return onChange(next);
-                    }}
-                  />
-                </Stack>
-              </Field.Root>
-              <Button
-                size="xs"
-                variant="ghost"
-                onClick={() => {
-                  const next = produce(from, (prev) => {
-                    if (!prev.join) return;
-
-                    delete prev.join.on;
-                  });
-
-                  onChange(next);
-                }}
-              >
-                Use natural join
-              </Button>
-            </>
-          )}
-
-          {from.join && !from.join.on && (
-            <Button
-              size="xs"
-              variant="ghost"
-              onClick={() => {
-                const next = produce(from, (prev) => {
-                  if (!prev.join) return;
-
-                  prev.join.on = { col: "", ext_col: "", ext_table: "" };
-                });
-
-                onChange(next);
-              }}
-            >
-              Select columns
-            </Button>
-          )}
-        </>
-      )}
-    </Stack>
-  );
-};
-
-const FromItemMenu = (props: { node: ZA.Nodes.Selection; from: ZA.QB.FromItem }) => {
-  return (
-    <>
-      <Menu.Item value="move_up">
-        <TbArrowUp />
-        Move up
-      </Menu.Item>
-      <Menu.Item value="move_down">
-        <TbArrowDown />
-        Move down
-      </Menu.Item>
-      <Menu.Item value="delete" color="fg.error" _hover={{ bg: "bg.error", color: "fg.error" }}>
-        <TbTrash />
-        Delete...
-      </Menu.Item>
-    </>
-  );
-};
-
-const FromItem = (props: {
-  node: ZA.Nodes.Selection;
-  from: ZA.QB.FromItem;
-  onChange(update: ZA.QB.FromItem): void;
-}) => {
-  const { from, node, onChange } = props;
-
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-
-  const joined = node.props.query.from.indexOf(from) > 0;
-
-  return (
-    <Popover.Root
-      lazyMount
-      positioning={{ placement: "right", getAnchorRect: () => buttonRef.current!.getBoundingClientRect() }}
-      open={open}
-      onOpenChange={(e) => setOpen(e.open)}
-    >
-      <Menu.Root lazyMount>
-        <Menu.ContextTrigger asChild>
-          <Button
-            ref={buttonRef}
-            variant="outline"
-            aria-expanded={open}
-            width="full"
-            justifyContent="flex-start"
-            onClick={() => setOpen(true)}
-          >
-            {node.props.refs?.includes(from.table) ? <TbTableShortcut /> : <TbTable />}
-            <Text flexGrow={1} textAlign="start">
-              {from.table}
-            </Text>
-            {joined && (
-              <>
-                {from.join ? (
-                  <Badge size="xs">
-                    <TbArrowUp />
-                    {`${from.join.type.toUpperCase()} JOIN`}
-                  </Badge>
-                ) : (
-                  <Badge size="xs">
-                    <TbArrowsCross />
-                    CROSS JOIN
-                  </Badge>
-                )}
-              </>
-            )}
-          </Button>
-        </Menu.ContextTrigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content>
-              <FromItemMenu {...props} />
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
-      <Portal>
-        <Popover.Positioner>
-          <Popover.Content>
-            <Popover.Arrow />
-            <Popover.Body>
-              <FromItemProps {...props} />
-            </Popover.Body>
-          </Popover.Content>
-        </Popover.Positioner>
-      </Portal>
-    </Popover.Root>
-  );
-};
-
-const ValueItemProps = (props: { value: ZA.QB.ValueItem }) => {
-  const { value } = props;
-
-  if (value.aka === "const") {
-    return (
-      <InputGroup
-        flex="1"
-        endAddon={
-          <NativeSelect.Root size="xs" variant="plain" width="auto">
-            <NativeSelect.Field fontSize="sm" value={value.type}>
-              <option value="number">Number</option>
-              <option value="string">String</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        }
-      >
-        {(() => {
-          if (value.type === "number") {
-            return (
-              <NumberInput.Root value={String(value.val)}>
-                <NumberInput.Input />
-              </NumberInput.Root>
-            );
-          }
-
-          return <Input placeholder="Text" value={value.val} />;
-        })()}
-      </InputGroup>
-    );
-  }
-
-  if (value.aka === "col") {
-    return (
-      <Stack direction="row">
-        <Input placeholder="Table" value={value.table} />
-        <Input placeholder="Column" value={value.col} />
-      </Stack>
-    );
-  }
-
-  return <Text color="fg.error">unknown</Text>;
-};
-
-const WhereItemProps = (props: { where: ZA.QB.WhereItem }) => {
-  const { where } = props;
-
-  return (
-    <Fieldset.Root size="lg">
-      <Fieldset.Content>
-        {(() => {
-          if ("left" in where) {
-            return (
-              <>
-                <Field.Root>
-                  <ValueItemProps value={where.left} />
-                </Field.Root>
-                <Field.Root>
-                  <SegmentGroup.Root value={where.aka} onValueChange={() => null}>
-                    <SegmentGroup.Indicator bg="bg" />
-                    <SegmentGroup.Items items={["<", "<=", "=", ">=", ">", "!="]} />
-                  </SegmentGroup.Root>
-                </Field.Root>
-                <Field.Root>
-                  <ValueItemProps value={where.right} />
-                </Field.Root>
-              </>
-            );
-          }
-
-          if ("obj" in where) {
-            return (
-              <>
-                <Field.Root>
-                  <ValueItemProps value={where.obj} />
-                </Field.Root>
-                <Field.Root>
-                  <SegmentGroup.Root value={where.aka} onValueChange={() => null}>
-                    <SegmentGroup.Indicator bg="bg" />
-                    <SegmentGroup.Items items={["is null", "is not null"]} />
-                  </SegmentGroup.Root>
-                </Field.Root>
-              </>
-            );
-          }
-
-          return <Text color="fg.error">unknown</Text>;
-        })()}
-      </Fieldset.Content>
-    </Fieldset.Root>
-  );
-};
-
-const WhereItemMenu = (props: { where: ZA.QB.WhereItem }) => {
-  const { where } = props;
-
-  return (
-    <>
-      {where.disabled && (
-        <Menu.Item value="enable">
-          <TbEye />
-          Enable
-        </Menu.Item>
-      )}
-      {!where.disabled && (
-        <Menu.Item value="disable">
-          <TbEyeClosed />
-          Disable
-        </Menu.Item>
-      )}
-      <Menu.Item value="delete" color="fg.error" _hover={{ bg: "bg.error", color: "fg.error" }}>
-        <TbTrash />
-        Delete...
-      </Menu.Item>
-    </>
-  );
-};
-
-const WhereItem = (props: { where: ZA.QB.WhereItem }) => {
-  const { where } = props;
-
-  const buttonRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover.Root
-      lazyMount
-      positioning={{ placement: "right", getAnchorRect: () => buttonRef.current!.getBoundingClientRect() }}
-      open={open}
-      onOpenChange={(e) => setOpen(e.open)}
-    >
-      <Menu.Root lazyMount>
-        <Menu.ContextTrigger asChild>
-          <Button
-            ref={buttonRef}
-            variant="outline"
-            width="full"
-            justifyContent="flex-start"
-            onClick={() => setOpen(true)}
-          >
-            <Box flexGrow="1" opacity={where.disabled ? 0.5 : undefined}>
-              {(() => {
-                if ("left" in where) {
-                  return (
-                    <Stack direction="row">
-                      <ValueItem value={where.left} />
-                      <Text>{where.aka}</Text>
-                      <ValueItem value={where.right} />
-                    </Stack>
-                  );
-                }
-
-                if ("obj" in where) {
-                  return (
-                    <Stack direction="row">
-                      <ValueItem value={where.obj} />
-                      <Text>{where.aka.toUpperCase()}</Text>
-                    </Stack>
-                  );
-                }
-
-                return <Text color="fg.error">unknown</Text>;
-              })()}
-            </Box>
-            {where.disabled && (
-              <Badge size="xs" textTransform="uppercase">
-                <TbEyeClosed />
-                Off
-              </Badge>
-            )}
-          </Button>
-        </Menu.ContextTrigger>
-        <Portal>
-          <Menu.Positioner>
-            <Menu.Content>
-              <WhereItemMenu {...props} />
-            </Menu.Content>
-          </Menu.Positioner>
-        </Portal>
-      </Menu.Root>
-      <Portal>
-        <Popover.Positioner>
-          <Popover.Content>
-            <Popover.Arrow />
-            <Popover.Body>
-              <WhereItemProps {...props} />
-            </Popover.Body>
-          </Popover.Content>
-        </Popover.Positioner>
-      </Portal>
-    </Popover.Root>
-  );
-};
-
-export const WhereOrItem = (props: { root?: boolean; where: ZA.QB.WhereItem & { aka: "or" } }) => {
-  const { where, root } = props;
-
-  return (
-    <Stack
-      borderRadius="sm"
-      borderLeftWidth={root ? undefined : "var(--chakra-spacing-4)"}
-      paddingLeft={root ? undefined : "2"}
-    >
-      {where.cases.map((c, ci) => (
-        <Fragment key={ci}>
-          {ci > 0 && (
-            <HStack>
-              <Separator variant="dashed" flex="1" />
-              <Text flexShrink="0">or</Text>
-              <Separator variant="dashed" flex="1" />
-            </HStack>
-          )}
-          <Stack>
-            {c.map((w, wi) => {
-              if (w.aka === "or") return <WhereOrItem key={wi} where={w} />;
-
-              return <WhereItem key={wi} where={w} />;
-            })}
-          </Stack>
-        </Fragment>
-      ))}
-    </Stack>
-  );
-};
+import { TbAsterisk, TbDatabaseSearch, TbFreezeColumn } from "react-icons/tb";
+import { FromItem } from "./FromItem";
+import { WhereOrItem } from "./WhereItem";
 
 export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(update: ZA.Nodes.Selection): void }) => {
   const { node, onChange } = props;
@@ -536,7 +24,7 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(updat
                 Extract
               </Tabs.Trigger>
               <Tabs.Trigger value="select">
-                <TbCodeAsterisk />
+                <TbAsterisk />
                 Select
               </Tabs.Trigger>
               <Tabs.Indicator rounded="l2" />
@@ -559,6 +47,25 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(updat
 
                           onChange(next);
                         }}
+                        onDelete={() => {
+                          const next = produce(node, (prev) => {
+                            prev.props.query.from.splice(i, 1);
+                          });
+
+                          onChange(next);
+                        }}
+                        onMove={(dir) => {
+                          const newIndex = i + dir;
+                          if (newIndex < 0 || newIndex >= node.props.query.from.length) return;
+
+                          const next = produce(node, (prev) => {
+                            const tmp = prev.props.query.from[i];
+                            prev.props.query.from[i] = prev.props.query.from[newIndex];
+                            prev.props.query.from[newIndex] = tmp;
+                          });
+
+                          onChange(next);
+                        }}
                       />
                     ))}
                     <Button variant="ghost" width="full" size="xs">
@@ -570,7 +77,17 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(updat
                 <Field.Root>
                   <Field.Label>Filters</Field.Label>
                   <Stack width="full">
-                    <WhereOrItem root where={node.props.query.where} />
+                    <WhereOrItem
+                      root
+                      where={node.props.query.where}
+                      onChange={(update) => {
+                        const next = produce(node, (prev) => {
+                          prev.props.query.where = update;
+                        });
+
+                        onChange(next);
+                      }}
+                    />
                     <Button variant="ghost" width="full" size="xs">
                       Add filter
                     </Button>
