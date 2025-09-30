@@ -1,8 +1,9 @@
 import { ZA } from "@/za";
 import { Box } from "@chakra-ui/react";
-import { Handle, Node, NodeProps, Position } from "@xyflow/react";
+import { Handle, Position } from "@xyflow/react";
+import { FlowProps } from "../nodeUtils";
 
-export const DebugPrintNode = (props: NodeProps<Node<{ node: ZA.Nodes.DebugPrint }>>) => {
+export const DebugPrintNode = (props: FlowProps<ZA.Nodes.DebugPrint>) => {
   const { data, selected } = props;
 
   return (

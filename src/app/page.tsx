@@ -1,9 +1,7 @@
 "use client";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
-  applyEdgeChanges,
-  addEdge,
   MiniMap,
   Controls,
   Edge,
@@ -11,45 +9,33 @@ import {
   NodeChange,
   EdgeChange,
   Connection,
+  applyNodeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { Box } from "@chakra-ui/react";
 import { ZA } from "@/za";
-import { SelectionNode } from "@/nodes/selection/SelectionNode";
-import { SelectionProps } from "@/nodes/selection/SelectionProps";
 import { useAppStore } from "./app.store.context";
-import { DebugPrintNode } from "@/nodes/debug/DebugPrintNode";
-
-const nodeTypes = {
-  debug_print: DebugPrintNode,
-  selection: SelectionNode,
-};
-
-type NodePropsComponent<N extends ZA.Node> = React.FC<{
-  node: N;
-  onChange(update: ZA.Node): void;
-}>;
-
-const nodePropTypes: {
-  [K in ZA.Node["type"]]?: NodePropsComponent<ZA.Node & { type: K }>;
-} = {
-  selection: SelectionProps,
-};
+import { produce } from "immer";
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node<{ node: ZA.Node }>[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
 
+  const actions = useAppStore((s) => s.actions);
+  const metaTypes = useAppStore((s) => s.metaTypes);
+  const selectedLinkId = useAppStore((s) => s.selectedLinkId);
   const selectedNodeIds = useAppStore((s) => s.selectedNodeIds);
   const zNodes = useAppStore((s) => s.space.nodes);
   const zLinks = useAppStore((s) => s.space.links);
 
-  const setNode = useAppStore((s) => s.setNode);
-  const selectNode = useAppStore((s) => s.selectNode);
-  const deselectNode = useAppStore((s) => s.deselectNode);
-
   const activeZNode = useAppStore((s) => s.space.nodes.find((n) => s.selectedNodeIds.has(n.id)));
 
+  // Initial fetch
+  useEffect(() => {
+    actions.fetchStartSpace();
+  }, []);
+
+  // Crating nodes and edges
   useEffect(() => {
     const newNodes: Node<{ node: ZA.Node }>[] = [];
     const newEdges: Edge[] = [];
@@ -59,8 +45,7 @@ export default function Home() {
         id: zn.id,
         type: zn.type,
         data: { node: zn },
-        selected: selectedNodeIds.has(zn.id),
-        position: { x: 0, y: 0, ...zn.ui?.position },
+        position: { ...zn.ui.position },
       });
     }
 
@@ -81,7 +66,7 @@ export default function Home() {
     for (const [a, bs] of groups.entries()) {
       for (const [b, links] of bs.entries()) {
         newEdges.push({
-          id: `${a}__${b}`,
+          id: `${a}:${b}`,
           source: a,
           target: b,
           label:
@@ -95,26 +80,75 @@ export default function Home() {
 
     setNodes(newNodes);
     setEdges(newEdges);
-  }, [zNodes, zLinks, selectedNodeIds]);
+  }, [zNodes, zLinks]);
+
+  // Sync selected node
+  useEffect(() => {
+    setNodes(
+      produce((prev) => {
+        for (const node of prev) {
+          node.selected = selectedNodeIds.has(node.id);
+        }
+      })
+    );
+  }, [zNodes, selectedNodeIds]);
+
+  // Sync selected edge
+  useEffect(() => {
+    setEdges(
+      produce((prev) => {
+        for (const edge of prev) {
+          edge.selected = selectedLinkId === edge.id;
+        }
+      })
+    );
+  }, [zLinks, selectedLinkId]);
 
   const onNodesChange = useCallback((changes: NodeChange<Node<{ node: ZA.Node }>>[]) => {
+    setNodes((prev) =>
+      applyNodeChanges(
+        changes.filter((c) => c.type === "position" || c.type === "dimensions"),
+        prev
+      )
+    );
+
     for (const change of changes) {
       if (change.type === "select") {
         if (change.selected) {
-          selectNode(change.id);
+          actions.selectNode(change.id);
         } else {
-          deselectNode(change.id);
+          actions.deselectNode(change.id);
         }
+      } else if (change.type === "position" && !change.dragging && change.position) {
+        actions.setNodePositionById(change.id, change.position);
       }
     }
   }, []);
   const onEdgesChange = useCallback(
-    (changes: EdgeChange[]) => setEdges((edgesSnapshot) => applyEdgeChanges(changes, edgesSnapshot)),
-    []
+    (changes: EdgeChange[]) => {
+      for (const change of changes) {
+        if (change.type === "remove") {
+          const edge = edges.find((e) => e.id === change.id);
+          if (!edge) throw new Error("Edge not found");
+
+          actions.disconnect(edge.source, edge.target);
+        } else if (change.type === "select") {
+          const edge = edges.find((e) => e.id === change.id);
+          if (!edge) throw new Error("Edge not found");
+
+          actions.selectLink(change.selected ? edge.id : undefined);
+        }
+      }
+    },
+    [edges]
   );
-  const onConnect = useCallback(
-    (connection: Connection) => setEdges((edgesSnapshot) => addEdge(connection, edgesSnapshot)),
-    []
+  const onConnect = useCallback((connection: Connection) => {
+    actions.connect(connection.source, connection.target);
+  }, []);
+
+  const nodeTypes = useMemo(
+    () => Object.fromEntries(Array.from(metaTypes.values()).map((meta) => [meta.type, meta.NodeComponent])),
+    [metaTypes]
   );
 
   return (
@@ -158,11 +192,16 @@ export default function Home() {
           }}
         >
           {(() => {
-            const Props = nodePropTypes[activeZNode.type] as NodePropsComponent<ZA.Node> | undefined;
+            const metaType = metaTypes.get(activeZNode.type);
+            if (!metaType) return "Meta not found";
 
-            if (!Props) return "Props is not implemented";
-
-            return <Props node={activeZNode} onChange={(update) => setNode(update.id, update)} />;
+            return (
+              <metaType.PropsComponent
+                state={undefined}
+                node={activeZNode}
+                onChange={(update) => actions.setNode(update.id, update)}
+              />
+            );
           })()}
         </Box>
       )}

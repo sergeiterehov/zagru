@@ -67,12 +67,20 @@ export namespace ZA {
     };
   }
 
+  export namespace UI {
+    export type Position = { x: number; y: number };
+
+    export type Type = {
+      position: Position;
+    };
+  }
+
   export namespace Nodes {
     type _Define<_Type extends string, _Props = unknown> = {
       id: ID;
       type: _Type;
       props: _Props;
-      ui?: { position: { x: number; y: number } };
+      ui: UI.Type;
     };
 
     export type DebugPrint = _Define<"debug_print", {}>;

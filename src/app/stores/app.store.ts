@@ -1,7 +1,9 @@
 import { ZA } from "@/za";
 import { enableMapSet, produce } from "immer";
 import { createStore } from "zustand/vanilla";
-import { getSqlPlan } from "../lib/actions";
+import { runSpaceAction } from "../lib/actions";
+import { NodeState } from "@/utils/nodeTypes";
+import { DataType, NodeIO, NodeMeta } from "@/nodes/nodeUtils";
 
 enableMapSet();
 
@@ -86,65 +88,237 @@ const initSpace: ZA.Space = {
 };
 
 export type AppStore = {
+  metaTypes: Map<string, NodeMeta>;
+
   space: ZA.Space;
   envSettingsOpened: boolean;
   selectedNodeIds: Set<ZA.ID>;
+  selectedLinkId?: ZA.ID;
+  nodeStates: Map<ZA.ID, NodeState>;
 
-  _fetchExecSpace(): Promise<void>;
+  readonly actions: {
+    defineMeta(metaList: NodeMeta[]): void;
 
-  setSpace(update: ZA.Space): void;
-  setNode(id: ZA.ID, update: ZA.Node): void;
-  openEnvSettings(): void;
+    setSpace(update: ZA.Space): void;
+    setNode(id: ZA.ID, update: ZA.Node): void;
+    setNodePositionById(id: ZA.ID, position: ZA.UI.Position): void;
+    openEnvSettings(): void;
 
-  selectNode(id: ZA.ID): void;
-  deselectNode(id: ZA.ID): void;
+    fetchStartSpace(): void;
+
+    selectLink(id?: ZA.ID): void;
+    selectNode(id: ZA.ID): void;
+    deselectNode(id: ZA.ID): void;
+
+    connect(sourceId: ZA.ID, targetId: ZA.ID): void;
+    disconnect(sourceId: ZA.ID, targetId: ZA.ID): void;
+  };
 };
 
 export const createAppStore = () => {
-  return createStore<AppStore>()((set, get) => ({
-    envSettingsOpened: false,
-    space: initSpace,
-    selectedNodeIds: new Set(),
+  return createStore<AppStore>()((set, get) => {
+    const initialState: Omit<AppStore, "actions"> = {
+      metaTypes: new Map(),
+      envSettingsOpened: false,
+      space: initSpace,
+      selectedNodeIds: new Set(),
+      nodeStates: new Map(),
+    };
 
-    async _fetchExecSpace() {
-      getSqlPlan({ space: get().space }).then(console.log, console.error);
-    },
+    const actions: AppStore["actions"] = {
+      defineMeta(metaList) {
+        const { metaTypes } = get();
 
-    setSpace(update) {
-      set({ space: update });
-    },
+        for (const meta of metaList) {
+          metaTypes.set(meta.type, meta);
+        }
+      },
 
-    setNode(id, update) {
-      set(
-        produce<AppStore>((prev) => {
-          const index = prev.space.nodes.findIndex((n) => n.id === id);
+      setSpace(update) {
+        set({ space: update });
+      },
 
-          if (index === -1) return;
+      async fetchStartSpace() {
+        set(
+          produce<AppStore>((prev) => {
+            prev.nodeStates.clear();
+          })
+        );
 
-          prev.space.nodes[index] = update;
-        })
-      );
+        try {
+          const res = await runSpaceAction({ space: get().space });
 
-      get()._fetchExecSpace();
-    },
+          set(
+            produce<AppStore>((prev) => {
+              prev.nodeStates = new Map(Object.entries(res.states));
+            })
+          );
+        } catch (e) {
+          console.error(e);
+        }
+      },
 
-    openEnvSettings() {
-      set({ envSettingsOpened: true });
-    },
+      setNode(id, update) {
+        set(
+          produce<AppStore>((prev) => {
+            const index = prev.space.nodes.findIndex((n) => n.id === id);
 
-    selectNode(id) {
-      set(
-        produce<AppStore>((prev) => {
-          prev.selectedNodeIds.add(id);
-        })
-      );
-    },
-    deselectNode(id) {
-      set(
-        produce<AppStore>((prev) => {
-          prev.selectedNodeIds.delete(id);
-        })
-      );
-    },
-  }));
+            if (index === -1) return;
+
+            prev.space.nodes[index] = update;
+          })
+        );
+
+        actions.fetchStartSpace();
+      },
+
+      setNodePositionById(id, position) {
+        set(
+          produce<AppStore>((prev) => {
+            const node = prev.space.nodes.find((n) => n.id === id);
+            if (!node) throw new Error("Node not found");
+
+            node.ui.position = position;
+          })
+        );
+      },
+
+      openEnvSettings() {
+        set({ envSettingsOpened: true });
+      },
+
+      selectLink(id) {
+        set({ selectedLinkId: id });
+      },
+
+      selectNode(id) {
+        set(
+          produce<AppStore>((prev) => {
+            prev.selectedNodeIds.add(id);
+          })
+        );
+      },
+
+      deselectNode(id) {
+        set(
+          produce<AppStore>((prev) => {
+            prev.selectedNodeIds.delete(id);
+          })
+        );
+      },
+
+      connect(sourceId, targetId) {
+        const { space, metaTypes } = get();
+
+        const source = space.nodes.find((n) => n.id === sourceId);
+        if (!source) throw new Error("Source node not found");
+
+        const target = space.nodes.find((n) => n.id === targetId);
+        if (!target) throw new Error("Target node not found");
+
+        const sourceMeta = metaTypes.get(source.type);
+        if (!sourceMeta) throw new Error("Source meta not found");
+
+        const targetMeta = metaTypes.get(target.type);
+        if (!targetMeta) throw new Error("Target meta not found");
+
+        const outputs = sourceMeta.getOutputs(source);
+        const inputs = targetMeta.getInputs(target);
+
+        let outputName: string | undefined;
+        let inputName: string | undefined;
+
+        const availableInputNames = new Set<string>(Object.keys(inputs));
+
+        for (const link of space.links) {
+          availableInputNames.delete(link.b[1]);
+        }
+
+        if ("_" in outputs && "_" in inputs && outputs._.type && inputs._.type) {
+          console.log("Default connection!");
+
+          outputName = "_";
+          inputName = "_";
+        }
+
+        if (!inputName || !outputName) {
+          for (const name of Object.keys(outputs)) {
+            if (name in inputs && inputs[name].type === outputs[name].type && availableInputNames.has(name)) {
+              console.log("Name-type matched connection!");
+
+              outputName = name;
+              inputName = name;
+
+              break;
+            }
+          }
+        }
+
+        if (!inputName || !outputName) {
+          for (const [_outputName, _output] of Object.entries(outputs)) {
+            for (const [_inputName, _input] of Object.entries(inputs)) {
+              if (_output.type === _input.type && availableInputNames.has(_inputName)) {
+                console.log("Only type matched connection!");
+
+                outputName = _outputName;
+                inputName = _inputName;
+
+                break;
+              }
+            }
+          }
+        }
+
+        if (!inputName || !outputName) throw new Error("Connection not available");
+
+        for (const link of space.links) {
+          if (
+            link.a[0] === source.id &&
+            link.a[1] === outputName &&
+            link.b[0] === target.id &&
+            link.b[1] === inputName
+          ) {
+            throw new Error("Link already exists");
+          }
+        }
+
+        set(
+          produce<AppStore>((prev) => {
+            const link: ZA.Link = {
+              id: `${source.id}.${outputName}:${target.id}.${inputName}`,
+              a: [source.id, outputName],
+              b: [target.id, inputName],
+            };
+
+            prev.space.links.push(link);
+          })
+        );
+
+        actions.fetchStartSpace();
+      },
+
+      disconnect(sourceId, targetId) {
+        const { space } = get();
+
+        const source = space.nodes.find((n) => n.id === sourceId);
+        if (!source) throw new Error("Source node not found");
+
+        const target = space.nodes.find((n) => n.id === targetId);
+        if (!target) throw new Error("Target node not found");
+
+        set(
+          produce<AppStore>((prev) => {
+            prev.space.links = prev.space.links.filter((l) => l.a[0] !== source.id || l.b[0] !== target.id);
+          })
+        );
+
+        actions.fetchStartSpace();
+      },
+    };
+
+    return {
+      ...initialState,
+      actions,
+    };
+  });
 };
