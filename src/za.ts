@@ -86,8 +86,9 @@ export namespace ZA {
 
     export type DebugPrint = _Define<"debug_print", {}>;
     export type Selection = _Define<"selection", { query: QB.Query; refs?: string[] }>;
+    export type CsvWrite = _Define<"csv_write", {}>;
 
-    export type Any = DebugPrint | Selection;
+    export type Any = DebugPrint | Selection | CsvWrite;
   }
 
   export type Node = Nodes.Any;

@@ -9,11 +9,11 @@ export async function runSpaceAction(params: { space: ZA.Space }) {
   const spaceImpl = new SpaceImpl(space);
   try {
     await spaceImpl.init();
-    const { debug_print_results } = await spaceImpl.start();
+    const { print_table } = await spaceImpl.start();
 
     return {
       ok: true,
-      debug_print_results,
+      print_table,
       states: Object.fromEntries(
         [...spaceImpl.nodesState.entries()].map(([id, state]) => [
           id,

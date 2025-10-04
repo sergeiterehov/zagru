@@ -18,6 +18,7 @@ import { useAppStore } from "./app.store.context";
 import { produce } from "immer";
 import { NodeResults } from "./components/Results";
 import { SpaceProps } from "./components/SpaceProps";
+import { MainActionsBar } from "./components/MainActionsBar";
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node<{ node: ZA.Node }>[]>([]);
@@ -123,6 +124,8 @@ export default function Home() {
         }
       } else if (change.type === "position" && !change.dragging && change.position) {
         actions.setNodePositionById(change.id, change.position);
+      } else if (change.type === "remove") {
+        actions.deleteNode(change.id);
       }
     }
   }, []);
@@ -170,6 +173,7 @@ export default function Home() {
         <MiniMap />
         <Controls />
       </ReactFlow>
+      <MainActionsBar />
       {activeZNode && (
         <Box
           p="4"

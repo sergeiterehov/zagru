@@ -1,7 +1,7 @@
 import { ZA } from "@/za";
 import { Node, NodeProps } from "@xyflow/react";
 
-export type DataType = "table" | "sql";
+export type DataType = "table" | "sql" | "file";
 export type NodeIO = { type: DataType };
 
 export type PropsProps<N extends ZA.Node> = {

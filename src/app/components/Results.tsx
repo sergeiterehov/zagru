@@ -8,7 +8,7 @@ export const NodeResults = memo((props: { node: ZA.Node }) => {
 
   const actions = useAppStore((s) => s.actions);
   const state = useAppStore((s) => s.executionResult?.states[node.id]);
-  const print = useAppStore((s) => s.executionResult?.debug_print_results[node.id]);
+  const print = useAppStore((s) => s.executionResult?.print_table[node.id]);
 
   if (!state) return "No results";
 

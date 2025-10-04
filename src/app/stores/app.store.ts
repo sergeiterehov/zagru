@@ -52,10 +52,8 @@ const initSpace: ZA.Space = {
           order: [],
         },
       },
-      ui: { position: { x: -65, y: -1.5 } },
+      ui: { position: { x: -86, y: -35.5 } },
     },
-    { id: "n_print", type: "debug_print", props: {}, ui: { position: { x: 29.5, y: 29 } } },
-    { id: "n_print_2", type: "debug_print", props: {}, ui: { position: { x: 109.5, y: 0 } } },
     {
       id: "n_selection_2",
       type: "selection",
@@ -79,11 +77,20 @@ const initSpace: ZA.Space = {
       },
       ui: { position: { x: 28, y: -35.5 } },
     },
+    { id: "n_csv_write", type: "csv_write", props: {}, ui: { position: { x: 122, y: -35.5 } } },
+    {
+      id: "n_print",
+      type: "debug_print",
+      props: {},
+      ui: { position: { x: 28, y: 9 } },
+    },
+    { id: "n_print_2", type: "debug_print", props: {}, ui: { position: { x: 122, y: 9 } } },
   ],
   links: [
     { id: "l_1", a: ["n_select_brands_models", "sql"], b: ["n_print", "sql"] },
     { id: "l_3", a: ["n_select_brands_models", "_"], b: ["n_selection_2", "t"] },
     { id: "l_2", a: ["n_selection_2", "_"], b: ["n_print_2", "_"] },
+    { id: "l_4", a: ["n_selection_2", "_"], b: ["n_csv_write", "_"] },
   ],
 };
 
@@ -116,6 +123,8 @@ export type AppStore = {
 
     connect(sourceId: ZA.ID, targetId: ZA.ID): void;
     disconnect(sourceId: ZA.ID, targetId: ZA.ID): void;
+
+    deleteNode(id: ZA.ID): void;
   };
 };
 
@@ -128,6 +137,12 @@ export const createAppStore = () => {
   };
 
   return createStore<AppStore>()((set, get) => {
+    const _dispatchSpaceChanged = () => {
+      const autostartOnChange = false;
+
+      if (autostartOnChange) actions.fetchStartSpace();
+    };
+
     const actions: AppStore["actions"] = {
       async begin() {
         await actions.fetchSchema();
@@ -180,7 +195,7 @@ export const createAppStore = () => {
           })
         );
 
-        actions.fetchStartSpace();
+        _dispatchSpaceChanged();
       },
 
       setNodePositionById(id, position) {
@@ -283,13 +298,8 @@ export const createAppStore = () => {
         if (!inputName || !outputName) throw new Error("Connection not available");
 
         for (const link of space.links) {
-          if (
-            link.a[0] === source.id &&
-            link.a[1] === outputName &&
-            link.b[0] === target.id &&
-            link.b[1] === inputName
-          ) {
-            throw new Error("Link already exists");
+          if (link.b[0] === target.id && link.b[1] === inputName) {
+            throw new Error("Input already used");
           }
         }
 
@@ -305,7 +315,7 @@ export const createAppStore = () => {
           })
         );
 
-        actions.fetchStartSpace();
+        _dispatchSpaceChanged();
       },
 
       disconnect(sourceId, targetId) {
@@ -323,7 +333,18 @@ export const createAppStore = () => {
           })
         );
 
-        actions.fetchStartSpace();
+        _dispatchSpaceChanged();
+      },
+
+      deleteNode(id) {
+        set(
+          produce<AppStore>((prev) => {
+            prev.space.nodes = prev.space.nodes.filter((n) => n.id !== id);
+            prev.space.links = prev.space.links.filter((ln) => ln.a[0] !== id && ln.b[0] !== id);
+          })
+        );
+
+        _dispatchSpaceChanged();
       },
     };
 

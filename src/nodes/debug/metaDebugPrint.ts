@@ -10,6 +10,7 @@ export const metaDebugPrint: NodeMeta<ZA.Nodes.DebugPrint> = {
   getInputs: () => ({
     _: { type: "table" },
     sql: { type: "sql" },
+    file: { type: "file" },
   }),
   getOutputs: () => ({}),
 

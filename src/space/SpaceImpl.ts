@@ -4,12 +4,14 @@ import { startDebugNode } from "@/nodes/debug/startDebugNode";
 import { startSelectionNode } from "@/nodes/selection/startSelectionNode";
 import { idToSql, strToSql } from "@/utils/duck";
 import { NodeEnv, NodeImpl, NodeState } from "@/utils/nodeTypes";
+import { startCsvWrite } from "@/nodes/csv-write/startCsvWrite";
 
 const max_each_select = 1_000_000;
 
 const implTypes: Record<ZA.Node["type"], NodeImpl<any, any, Record<string, unknown>>> = {
   debug_print: startDebugNode,
   selection: startSelectionNode,
+  csv_write: startCsvWrite,
 };
 
 export class SpaceImpl {
@@ -128,7 +130,7 @@ export class SpaceImpl {
     const env: NodeEnv = {
       duck,
       select_limit: max_each_select,
-      debug_print_results: {},
+      print_table: {},
     };
 
     for (const node of this._queue) {
