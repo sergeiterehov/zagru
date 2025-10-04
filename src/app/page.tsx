@@ -12,10 +12,12 @@ import {
   applyNodeChanges,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { Box } from "@chakra-ui/react";
+import { Box, HStack, Tabs } from "@chakra-ui/react";
 import { ZA } from "@/za";
 import { useAppStore } from "./app.store.context";
 import { produce } from "immer";
+import { NodeResults } from "./components/Results";
+import { SpaceProps } from "./components/SpaceProps";
 
 export default function Home() {
   const [nodes, setNodes] = useState<Node<{ node: ZA.Node }>[]>([]);
@@ -32,7 +34,7 @@ export default function Home() {
 
   // Initial fetch
   useEffect(() => {
-    actions.fetchStartSpace();
+    actions.begin();
   }, []);
 
   // Crating nodes and edges
@@ -124,6 +126,7 @@ export default function Home() {
       }
     }
   }, []);
+
   const onEdgesChange = useCallback(
     (changes: EdgeChange[]) => {
       for (const change of changes) {
@@ -142,6 +145,7 @@ export default function Home() {
     },
     [edges]
   );
+
   const onConnect = useCallback((connection: Connection) => {
     actions.connect(connection.source, connection.target);
   }, []);
@@ -154,13 +158,14 @@ export default function Home() {
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
       <ReactFlow
+        fitView
+        attributionPosition="bottom-left"
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
-        fitView
       >
         <MiniMap />
         <Controls />
@@ -176,7 +181,7 @@ export default function Home() {
             position: "absolute",
             top: 10,
             left: 10,
-            width: 420,
+            width: 380,
             maxHeight: "calc(100vh - 2 * var(--chakra-spacing-10))",
             overflow: "hidden",
             overflowY: "auto",
@@ -205,6 +210,41 @@ export default function Home() {
           })()}
         </Box>
       )}
+      <Box
+        p="4"
+        bg="rgba(255,255,255,0.8)"
+        backdropFilter="blur(12px)"
+        borderRadius="lg"
+        shadow="lg"
+        css={{
+          position: "absolute",
+          top: 10,
+          right: 10,
+          maxWidth: 420,
+          maxHeight: "calc(100vh - 2 * var(--chakra-spacing-10))",
+          overflow: "hidden",
+          overflowY: "auto",
+        }}
+      >
+        <Tabs.Root lazyMount unmountOnExit defaultValue="results" variant="plain">
+          <HStack width="full" justifyContent="flex-end">
+            <Tabs.List bg="bg.muted" rounded="l3" p="1">
+              <Tabs.Trigger value="results">Results</Tabs.Trigger>
+              <Tabs.Trigger value="space">Space</Tabs.Trigger>
+              <Tabs.Trigger value="select">Hide</Tabs.Trigger>
+              <Tabs.Indicator rounded="l2" />
+            </Tabs.List>
+          </HStack>
+
+          <Tabs.Content value="results">
+            {activeZNode ? <NodeResults node={activeZNode} /> : "Select any node"}
+          </Tabs.Content>
+          <Tabs.Content value="space" m="0" p="0">
+            <SpaceProps />
+          </Tabs.Content>
+          <Tabs.Content value="hide" m="0" p="0"></Tabs.Content>
+        </Tabs.Root>
+      </Box>
     </div>
   );
 }

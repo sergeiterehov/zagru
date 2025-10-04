@@ -2,13 +2,14 @@ export namespace ZA {
   export type ID = string;
   export type IDSelector = ID[];
 
-  export type TableInfo = {
-    database: string;
-    schema: string;
-    name: string;
-    column_names: string[];
-    column_types: string[];
-    temporary: boolean;
+  export type ColumnInfo = {
+    database_name: string;
+    schema_name: string;
+    table_name: string;
+    column_name: string;
+    column_index: number;
+    data_type: string;
+    data_type_id: string;
   };
 
   export namespace DB {

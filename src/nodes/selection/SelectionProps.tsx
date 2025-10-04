@@ -18,7 +18,7 @@ export const SelectionProps = (props: { node: ZA.Nodes.Selection; onChange(updat
             <Fieldset.HelperText>Please provide your selection details below.</Fieldset.HelperText>
           </Stack>
 
-          <Tabs.Root lazyMount defaultValue="extracting" variant="plain">
+          <Tabs.Root lazyMount unmountOnExit defaultValue="extracting" variant="plain">
             <Tabs.List bg="bg.muted" rounded="l3" p="1">
               <Tabs.Trigger value="extracting">
                 <TbDatabaseSearch />

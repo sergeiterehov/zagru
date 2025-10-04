@@ -53,15 +53,17 @@ export class SpaceImpl {
     }
   }
 
-  public async getAvailableTables() {
+  public async getSchemaInfo() {
     const duck = await this._duck;
 
     const connection = await duck.connect();
     try {
       await this._attachDatabases();
 
-      const result = await connection.run(`SHOW ALL TABLES;`);
-      const tables = (await result.getRowObjectsJson()) as ZA.TableInfo[];
+      const result = await connection.run(
+        `SELECT database_name,schema_name,table_name,column_name,column_index,data_type,data_type_id FROM duckdb_columns;`
+      );
+      const tables = (await result.getRowObjectsJson()) as ZA.ColumnInfo[];
 
       return tables;
     } finally {
@@ -126,7 +128,7 @@ export class SpaceImpl {
     const env: NodeEnv = {
       duck,
       select_limit: max_each_select,
-      debug_print_results: [],
+      debug_print_results: {},
     };
 
     for (const node of this._queue) {

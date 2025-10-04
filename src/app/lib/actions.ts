@@ -25,3 +25,16 @@ export async function runSpaceAction(params: { space: ZA.Space }) {
     spaceImpl.destroy();
   }
 }
+
+export async function getSchema(params: { space: ZA.Space }) {
+  const { space } = params;
+
+  const spaceImpl = new SpaceImpl(space);
+  try {
+    await spaceImpl.init();
+
+    return await spaceImpl.getSchemaInfo();
+  } finally {
+    spaceImpl.destroy();
+  }
+}

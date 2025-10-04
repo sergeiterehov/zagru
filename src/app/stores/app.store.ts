@@ -1,7 +1,7 @@
 import { ZA } from "@/za";
 import { enableMapSet, produce } from "immer";
 import { createStore } from "zustand/vanilla";
-import { runSpaceAction } from "../lib/actions";
+import { getSchema, runSpaceAction } from "../lib/actions";
 import { NodeState } from "@/utils/nodeTypes";
 import { DataType, NodeIO, NodeMeta } from "@/nodes/nodeUtils";
 
@@ -94,9 +94,12 @@ export type AppStore = {
   envSettingsOpened: boolean;
   selectedNodeIds: Set<ZA.ID>;
   selectedLinkId?: ZA.ID;
-  nodeStates: Map<ZA.ID, NodeState>;
+  executionResult?: Awaited<ReturnType<typeof runSpaceAction>>;
+  columns?: ZA.ColumnInfo[];
 
   readonly actions: {
+    begin(): Promise<void>;
+
     defineMeta(metaList: NodeMeta[]): void;
 
     setSpace(update: ZA.Space): void;
@@ -104,7 +107,8 @@ export type AppStore = {
     setNodePositionById(id: ZA.ID, position: ZA.UI.Position): void;
     openEnvSettings(): void;
 
-    fetchStartSpace(): void;
+    fetchSchema(): Promise<void>;
+    fetchStartSpace(): Promise<void>;
 
     selectLink(id?: ZA.ID): void;
     selectNode(id: ZA.ID): void;
@@ -116,16 +120,20 @@ export type AppStore = {
 };
 
 export const createAppStore = () => {
-  return createStore<AppStore>()((set, get) => {
-    const initialState: Omit<AppStore, "actions"> = {
-      metaTypes: new Map(),
-      envSettingsOpened: false,
-      space: initSpace,
-      selectedNodeIds: new Set(),
-      nodeStates: new Map(),
-    };
+  const initialState: Omit<AppStore, "actions"> = {
+    metaTypes: new Map(),
+    envSettingsOpened: false,
+    space: initSpace,
+    selectedNodeIds: new Set(),
+  };
 
+  return createStore<AppStore>()((set, get) => {
     const actions: AppStore["actions"] = {
+      async begin() {
+        await actions.fetchSchema();
+        await actions.fetchStartSpace();
+      },
+
       defineMeta(metaList) {
         const { metaTypes } = get();
 
@@ -138,21 +146,24 @@ export const createAppStore = () => {
         set({ space: update });
       },
 
+      async fetchSchema() {
+        const { space } = get();
+
+        set({ columns: undefined });
+
+        const columns = await getSchema({ space });
+        console.log(columns);
+
+        set({ columns });
+      },
+
       async fetchStartSpace() {
-        set(
-          produce<AppStore>((prev) => {
-            prev.nodeStates.clear();
-          })
-        );
+        set({ executionResult: undefined });
 
         try {
           const res = await runSpaceAction({ space: get().space });
 
-          set(
-            produce<AppStore>((prev) => {
-              prev.nodeStates = new Map(Object.entries(res.states));
-            })
-          );
+          set({ executionResult: res });
         } catch (e) {
           console.error(e);
         }

@@ -4,7 +4,7 @@ import { DuckDBInstance } from "@duckdb/node-api";
 export type NodeEnv = {
   duck: DuckDBInstance;
   select_limit: number;
-  debug_print_results: { id: ZA.ID; cols: unknown; rows: unknown }[];
+  debug_print_results: Record<ZA.ID, { cols: unknown[]; rows: unknown[][] }>;
 };
 
 export type NodeState = {
